@@ -1,6 +1,11 @@
-# Gotify MCP Server
+# gotify-mcp
 
-A Model Context Protocol (MCP) server that enables LLMs to send notifications to a Gotify server. This allows AI assistants to notify users about task completion, request help, or provide activity summaries.
+[![License 0BSD](https://img.shields.io/badge/License-0BSD-pink.svg)](https://opensource.org/licenses/0BSD)
+[![GoDoc](https://godoc.org/github.com/taigrr/gotify-mcp?status.svg)](https://godoc.org/github.com/taigrr/gotify-mcp)
+[![Go Mod](https://img.shields.io/badge/go.mod-v1.23-blue)](go.mod)
+
+A Model Context Protocol (MCP) server that enables LLMs to send notifications to a Gotify server.
+This allows AI assistants to notify users about task completion, request help, or provide activity summaries.
 
 ## Features
 
@@ -18,21 +23,16 @@ The MCP server requires the following environment variables:
 
 ## Installation
 
-1. Clone the repository:
+```bash
+go install github.com/taigrr/gotify-mcp@latest
+```
+
+Or build from source:
+
 ```bash
 git clone https://github.com/taigrr/gotify-mcp.git
 cd gotify-mcp
-```
-
-2. Build the binary:
-```bash
 go build -o gotify-mcp
-```
-
-3. Set up environment variables:
-```bash
-export GOTIFY_URL="https://your-gotify-server.com"
-export GOTIFY_TOKEN="your-application-token"
 ```
 
 ## Usage
@@ -90,4 +90,8 @@ Example configuration for Claude Desktop:
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the 0BSD License, written by [Rob Landley](https://github.com/landley).
+As such, you may use this library without restriction or attribution, but please don't pass it off as your own.
+Attribution, though not required, is appreciated.
+
+By contributing, you agree all code submitted also falls under the License.
