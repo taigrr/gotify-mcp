@@ -18,14 +18,14 @@ type GotifyMessage struct {
 	Priority int    `json:"priority,omitempty"`
 }
 
-func getStringArg(args map[string]interface{}, key string, defaultValue string) string {
+func getStringArg(args map[string]any, key string, defaultValue string) string {
 	if val, ok := args[key].(string); ok {
 		return val
 	}
 	return defaultValue
 }
 
-func getNumberArg(args map[string]interface{}, key string, defaultValue float64) float64 {
+func getNumberArg(args map[string]any, key string, defaultValue float64) float64 {
 	if val, ok := args[key].(float64); ok {
 		return val
 	}
@@ -132,7 +132,7 @@ func sendMessage(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToo
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	args, ok := request.Params.Arguments.(map[string]interface{})
+	args, ok := request.Params.Arguments.(map[string]any)
 	if !ok {
 		return mcp.NewToolResultError("invalid arguments type"), nil
 	}
@@ -159,7 +159,7 @@ func askForHelp(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTool
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	args, ok := request.Params.Arguments.(map[string]interface{})
+	args, ok := request.Params.Arguments.(map[string]any)
 	if !ok {
 		return mcp.NewToolResultError("invalid arguments type"), nil
 	}
@@ -190,7 +190,7 @@ func notifyCompletion(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	args, ok := request.Params.Arguments.(map[string]interface{})
+	args, ok := request.Params.Arguments.(map[string]any)
 	if !ok {
 		return mcp.NewToolResultError("invalid arguments type"), nil
 	}
@@ -221,7 +221,7 @@ func summarizeActivity(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	args, ok := request.Params.Arguments.(map[string]interface{})
+	args, ok := request.Params.Arguments.(map[string]any)
 	if !ok {
 		return mcp.NewToolResultError("invalid arguments type"), nil
 	}
@@ -245,3 +245,4 @@ func summarizeActivity(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 
 	return mcp.NewToolResultText("Activity summary sent successfully"), nil
 }
+
