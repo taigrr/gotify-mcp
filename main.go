@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type GotifyMessage struct {
@@ -18,81 +18,55 @@ type GotifyMessage struct {
 	Priority int    `json:"priority,omitempty"`
 }
 
-func getStringArg(args map[string]any, key string, defaultValue string) string {
-	if val, ok := args[key].(string); ok {
-		return val
-	}
-	return defaultValue
+type SendMessageArgs struct {
+	Message  string  `json:"message" jsonschema:"The message content to send"`
+	Title    string  `json:"title,omitempty" jsonschema:"Optional title for the message"`
+	Priority float64 `json:"priority,omitempty" jsonschema:"Message priority (0-10 default: 5)"`
 }
 
-func getNumberArg(args map[string]any, key string, defaultValue float64) float64 {
-	if val, ok := args[key].(float64); ok {
-		return val
-	}
-	return defaultValue
+type AskForHelpArgs struct {
+	Context string `json:"context" jsonschema:"Context or description of what help is needed"`
+	Error   string `json:"error,omitempty" jsonschema:"Optional error message or details"`
+}
+
+type NotifyCompletionArgs struct {
+	Task   string `json:"task" jsonschema:"Description of the completed task"`
+	Result string `json:"result,omitempty" jsonschema:"Optional result or outcome details"`
+}
+
+type SummarizeActivityArgs struct {
+	Summary string `json:"summary" jsonschema:"Summary of activities or current status"`
+	Details string `json:"details,omitempty" jsonschema:"Optional additional details"`
 }
 
 func main() {
-	s := server.NewMCPServer(
-		"Gotify Notification Server",
-		"1.0.0",
-		server.WithToolCapabilities(false),
-	)
+	server := mcp.NewServer(&mcp.Implementation{
+		Name:    "Gotify Notification Server",
+		Version: "1.0.0",
+	}, nil)
 
-	sendMessageTool := mcp.NewTool("send-message",
-		mcp.WithDescription("Send a message to a Gotify server for notifications"),
-		mcp.WithString("message",
-			mcp.Required(),
-			mcp.Description("The message content to send"),
-		),
-		mcp.WithString("title",
-			mcp.Description("Optional title for the message"),
-		),
-		mcp.WithNumber("priority",
-			mcp.Description("Message priority (0-10, default: 5)"),
-		),
-	)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "send-message",
+		Description: "Send a message to a Gotify server for notifications",
+	}, sendMessage)
 
-	askForHelpTool := mcp.NewTool("ask-for-help",
-		mcp.WithDescription("Send a help request notification to the user via Gotify"),
-		mcp.WithString("context",
-			mcp.Required(),
-			mcp.Description("Context or description of what help is needed"),
-		),
-		mcp.WithString("error",
-			mcp.Description("Optional error message or details"),
-		),
-	)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "ask-for-help",
+		Description: "Send a help request notification to the user via Gotify",
+	}, askForHelp)
 
-	notifyCompletionTool := mcp.NewTool("notify-completion",
-		mcp.WithDescription("Send a completion notification to the user via Gotify"),
-		mcp.WithString("task",
-			mcp.Required(),
-			mcp.Description("Description of the completed task"),
-		),
-		mcp.WithString("result",
-			mcp.Description("Optional result or outcome details"),
-		),
-	)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "notify-completion",
+		Description: "Send a completion notification to the user via Gotify",
+	}, notifyCompletion)
 
-	summarizeTool := mcp.NewTool("summarize-activity",
-		mcp.WithDescription("Send a summary of current activities or status to the user via Gotify"),
-		mcp.WithString("summary",
-			mcp.Required(),
-			mcp.Description("Summary of activities or current status"),
-		),
-		mcp.WithString("details",
-			mcp.Description("Optional additional details"),
-		),
-	)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "summarize-activity",
+		Description: "Send a summary of current activities or status to the user via Gotify",
+	}, summarizeActivity)
 
-	s.AddTool(sendMessageTool, sendMessage)
-	s.AddTool(askForHelpTool, askForHelp)
-	s.AddTool(notifyCompletionTool, notifyCompletion)
-	s.AddTool(summarizeTool, summarizeActivity)
-
-	if err := server.ServeStdio(s); err != nil {
-		fmt.Printf("Server error: %v\n", err)
+	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
+		log.Printf("Server error: %v\n", err)
 	}
 }
 
@@ -126,49 +100,38 @@ func sendGotifyMessage(message GotifyMessage) error {
 	return nil
 }
 
-func sendMessage(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	message, err := request.RequireString("message")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+func sendMessage(ctx context.Context, req *mcp.CallToolRequest, args SendMessageArgs) (*mcp.CallToolResult, any, error) {
+	priority := 5
+	if args.Priority > 0 {
+		priority = int(args.Priority)
 	}
-
-	args, ok := request.Params.Arguments.(map[string]any)
-	if !ok {
-		return mcp.NewToolResultError("invalid arguments type"), nil
-	}
-
-	title := getStringArg(args, "title", "")
-	priority := getNumberArg(args, "priority", 5)
 
 	gotifyMsg := GotifyMessage{
-		Message:  message,
-		Title:    title,
-		Priority: int(priority),
+		Message:  args.Message,
+		Title:    args.Title,
+		Priority: priority,
 	}
 
 	if err := sendGotifyMessage(gotifyMsg); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to send message: %s", err)), nil
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("Failed to send message: %s", err)},
+			},
+			IsError: true,
+		}, nil, nil
 	}
 
-	return mcp.NewToolResultText("Message sent successfully"), nil
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: "Message sent successfully"},
+		},
+	}, nil, nil
 }
 
-func askForHelp(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	contextStr, err := request.RequireString("context")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-
-	args, ok := request.Params.Arguments.(map[string]any)
-	if !ok {
-		return mcp.NewToolResultError("invalid arguments type"), nil
-	}
-
-	errorMsg := getStringArg(args, "error", "")
-
-	message := fmt.Sprintf("🆘 Help needed: %s", contextStr)
-	if errorMsg != "" {
-		message += fmt.Sprintf("\nError: %s", errorMsg)
+func askForHelp(ctx context.Context, req *mcp.CallToolRequest, args AskForHelpArgs) (*mcp.CallToolResult, any, error) {
+	message := fmt.Sprintf("🆘 Help needed: %s", args.Context)
+	if args.Error != "" {
+		message += fmt.Sprintf("\nError: %s", args.Error)
 	}
 
 	gotifyMsg := GotifyMessage{
@@ -178,28 +141,25 @@ func askForHelp(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTool
 	}
 
 	if err := sendGotifyMessage(gotifyMsg); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to send help request: %s", err)), nil
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("Failed to send help request: %s", err)},
+			},
+			IsError: true,
+		}, nil, nil
 	}
 
-	return mcp.NewToolResultText("Help request sent successfully"), nil
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: "Help request sent successfully"},
+		},
+	}, nil, nil
 }
 
-func notifyCompletion(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	task, err := request.RequireString("task")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-
-	args, ok := request.Params.Arguments.(map[string]any)
-	if !ok {
-		return mcp.NewToolResultError("invalid arguments type"), nil
-	}
-
-	result := getStringArg(args, "result", "")
-
-	message := fmt.Sprintf("✅ Task completed: %s", task)
-	if result != "" {
-		message += fmt.Sprintf("\nResult: %s", result)
+func notifyCompletion(ctx context.Context, req *mcp.CallToolRequest, args NotifyCompletionArgs) (*mcp.CallToolResult, any, error) {
+	message := fmt.Sprintf("✅ Task completed: %s", args.Task)
+	if args.Result != "" {
+		message += fmt.Sprintf("\nResult: %s", args.Result)
 	}
 
 	gotifyMsg := GotifyMessage{
@@ -209,28 +169,25 @@ func notifyCompletion(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 	}
 
 	if err := sendGotifyMessage(gotifyMsg); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to send completion notification: %s", err)), nil
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("Failed to send completion notification: %s", err)},
+			},
+			IsError: true,
+		}, nil, nil
 	}
 
-	return mcp.NewToolResultText("Completion notification sent successfully"), nil
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: "Completion notification sent successfully"},
+		},
+	}, nil, nil
 }
 
-func summarizeActivity(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	summary, err := request.RequireString("summary")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-
-	args, ok := request.Params.Arguments.(map[string]any)
-	if !ok {
-		return mcp.NewToolResultError("invalid arguments type"), nil
-	}
-
-	details := getStringArg(args, "details", "")
-
-	message := fmt.Sprintf("📊 Activity Summary: %s", summary)
-	if details != "" {
-		message += fmt.Sprintf("\nDetails: %s", details)
+func summarizeActivity(ctx context.Context, req *mcp.CallToolRequest, args SummarizeActivityArgs) (*mcp.CallToolResult, any, error) {
+	message := fmt.Sprintf("📊 Activity Summary: %s", args.Summary)
+	if args.Details != "" {
+		message += fmt.Sprintf("\nDetails: %s", args.Details)
 	}
 
 	gotifyMsg := GotifyMessage{
@@ -240,9 +197,17 @@ func summarizeActivity(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	}
 
 	if err := sendGotifyMessage(gotifyMsg); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to send summary: %s", err)), nil
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("Failed to send summary: %s", err)},
+			},
+			IsError: true,
+		}, nil, nil
 	}
 
-	return mcp.NewToolResultText("Activity summary sent successfully"), nil
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: "Activity summary sent successfully"},
+		},
+	}, nil, nil
 }
-
