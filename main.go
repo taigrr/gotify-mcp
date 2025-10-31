@@ -16,12 +16,22 @@ type GotifyMessage struct {
 	Message  string `json:"message"`
 	Title    string `json:"title,omitempty"`
 	Priority int    `json:"priority,omitempty"`
+	Extras   Extras `json:"extras,omitempty"`
+}
+
+type Extras struct {
+	ClientDisplay ClientDisplay `json:"client::display,omitempty"`
+}
+
+type ClientDisplay struct {
+	ContentType string `json:"contentType,omitempty"`
 }
 
 type SendMessageArgs struct {
-	Message  string  `json:"message" jsonschema:"The message content to send"`
-	Title    string  `json:"title,omitempty" jsonschema:"Optional title for the message"`
-	Priority float64 `json:"priority,omitempty" jsonschema:"Message priority (0-10 default: 5)"`
+	Message     string  `json:"message" jsonschema:"The message content to send"`
+	Title       string  `json:"title,omitempty" jsonschema:"Optional title for the message"`
+	Priority    float64 `json:"priority,omitempty" jsonschema:"Message priority (0-10 default: 5)"`
+	ContentType string  `json:"contentType,omitempty"  jsonschema:"Message ContentType (text/plain, text/markdown default: text/plain)"`
 }
 
 type AskForHelpArgs struct {
@@ -105,11 +115,19 @@ func sendMessage(ctx context.Context, req *mcp.CallToolRequest, args SendMessage
 	if args.Priority > 0 {
 		priority = int(args.Priority)
 	}
+	if args.ContentType == "" {
+		args.ContentType = "text/markdown"
+	}
 
 	gotifyMsg := GotifyMessage{
 		Message:  args.Message,
 		Title:    args.Title,
 		Priority: priority,
+		Extras: Extras{
+			ClientDisplay: ClientDisplay{
+				ContentType: args.ContentType,
+			},
+		},
 	}
 
 	if err := sendGotifyMessage(gotifyMsg); err != nil {
