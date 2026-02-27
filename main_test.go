@@ -235,6 +235,183 @@ func TestNotifyCompletion(t *testing.T) {
 	}
 }
 
+func TestSendMessage_MissingEnv(t *testing.T) {
+	t.Setenv("GOTIFY_URL", "")
+	t.Setenv("GOTIFY_TOKEN", "")
+	result, _, err := sendMessage(context.Background(), nil, SendMessageArgs{Message: "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Error("expected error result for missing env")
+	}
+}
+
+func TestAskForHelp_MissingEnv(t *testing.T) {
+	t.Setenv("GOTIFY_URL", "")
+	t.Setenv("GOTIFY_TOKEN", "")
+	result, _, err := askForHelp(context.Background(), nil, AskForHelpArgs{Context: "help"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Error("expected error result for missing env")
+	}
+}
+
+func TestNotifyCompletion_MissingEnv(t *testing.T) {
+	t.Setenv("GOTIFY_URL", "")
+	t.Setenv("GOTIFY_TOKEN", "")
+	result, _, err := notifyCompletion(context.Background(), nil, NotifyCompletionArgs{Task: "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Error("expected error result for missing env")
+	}
+}
+
+func TestSummarizeActivity_MissingEnv(t *testing.T) {
+	t.Setenv("GOTIFY_URL", "")
+	t.Setenv("GOTIFY_TOKEN", "")
+	result, _, err := summarizeActivity(context.Background(), nil, SummarizeActivityArgs{Summary: "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Error("expected error result for missing env")
+	}
+}
+
+func TestSendMessage_ServerError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+	t.Setenv("GOTIFY_URL", ts.URL)
+	t.Setenv("GOTIFY_TOKEN", "tok")
+	result, _, err := sendMessage(context.Background(), nil, SendMessageArgs{Message: "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Error("expected error result for server error")
+	}
+}
+
+func TestAskForHelp_ServerError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+	t.Setenv("GOTIFY_URL", ts.URL)
+	t.Setenv("GOTIFY_TOKEN", "tok")
+	result, _, err := askForHelp(context.Background(), nil, AskForHelpArgs{Context: "help"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Error("expected error result for server error")
+	}
+}
+
+func TestNotifyCompletion_ServerError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+	t.Setenv("GOTIFY_URL", ts.URL)
+	t.Setenv("GOTIFY_TOKEN", "tok")
+	result, _, err := notifyCompletion(context.Background(), nil, NotifyCompletionArgs{Task: "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Error("expected error result for server error")
+	}
+}
+
+func TestSummarizeActivity_ServerError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+	t.Setenv("GOTIFY_URL", ts.URL)
+	t.Setenv("GOTIFY_TOKEN", "tok")
+	result, _, err := summarizeActivity(context.Background(), nil, SummarizeActivityArgs{Summary: "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Error("expected error result for server error")
+	}
+}
+
+func TestAskForHelp_WithoutError(t *testing.T) {
+	var received GotifyMessage
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&received)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	t.Setenv("GOTIFY_URL", ts.URL)
+	t.Setenv("GOTIFY_TOKEN", "tok")
+	result, _, _ := askForHelp(context.Background(), nil, AskForHelpArgs{Context: "stuck"})
+	if result.IsError {
+		t.Error("expected success")
+	}
+	if received.Message != "🆘 Help needed: stuck" {
+		t.Errorf("unexpected message: %q", received.Message)
+	}
+}
+
+func TestNotifyCompletion_WithoutResult(t *testing.T) {
+	var received GotifyMessage
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&received)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	t.Setenv("GOTIFY_URL", ts.URL)
+	t.Setenv("GOTIFY_TOKEN", "tok")
+	result, _, _ := notifyCompletion(context.Background(), nil, NotifyCompletionArgs{Task: "build"})
+	if result.IsError {
+		t.Error("expected success")
+	}
+	if received.Message != "✅ Task completed: build" {
+		t.Errorf("unexpected message: %q", received.Message)
+	}
+}
+
+func TestSummarizeActivity_WithoutDetails(t *testing.T) {
+	var received GotifyMessage
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&received)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	t.Setenv("GOTIFY_URL", ts.URL)
+	t.Setenv("GOTIFY_TOKEN", "tok")
+	result, _, _ := summarizeActivity(context.Background(), nil, SummarizeActivityArgs{Summary: "all good"})
+	if result.IsError {
+		t.Error("expected success")
+	}
+	if received.Message != "📊 Activity Summary: all good" {
+		t.Errorf("unexpected message: %q", received.Message)
+	}
+}
+
+func TestGotifyClient_Send_ConnectionError(t *testing.T) {
+	client := &GotifyClient{
+		URL:        "http://127.0.0.1:1",
+		Token:      "tok",
+		HTTPClient: http.DefaultClient,
+	}
+	err := client.Send(GotifyMessage{Message: "test"})
+	if err == nil {
+		t.Fatal("expected error for connection failure")
+	}
+}
 func TestSummarizeActivity(t *testing.T) {
 	var received GotifyMessage
 
