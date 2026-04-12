@@ -82,15 +82,22 @@ func NewGotifyClientFromEnv() (*GotifyClient, error) {
 	}, nil
 }
 
-// Send posts a GotifyMessage to the server.
-func (c *GotifyClient) Send(msg GotifyMessage) error {
+// Send posts a GotifyMessage to the server using the provided context.
+func (c *GotifyClient) Send(ctx context.Context, msg GotifyMessage) error {
 	jsonData, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/message?token=%s", c.URL, c.Token)
-	resp, err := c.HTTPClient.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	url := fmt.Sprintf("%s/message", c.URL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Gotify-Key", c.Token)
+
+	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send message: %w", err)
 	}
@@ -144,7 +151,7 @@ func main() {
 	}
 }
 
-func sendMessage(_ context.Context, _ *mcp.CallToolRequest, args SendMessageArgs) (*mcp.CallToolResult, any, error) {
+func sendMessage(ctx context.Context, _ *mcp.CallToolRequest, args SendMessageArgs) (*mcp.CallToolResult, any, error) {
 	client, err := NewGotifyClientFromEnv()
 	if err != nil {
 		return toolResult(fmt.Sprintf("Failed to send message: %s", err), true)
@@ -167,14 +174,14 @@ func sendMessage(_ context.Context, _ *mcp.CallToolRequest, args SendMessageArgs
 		}
 	}
 
-	if err := client.Send(msg); err != nil {
+	if err := client.Send(ctx, msg); err != nil {
 		return toolResult(fmt.Sprintf("Failed to send message: %s", err), true)
 	}
 
 	return toolResult("Message sent successfully", false)
 }
 
-func askForHelp(_ context.Context, _ *mcp.CallToolRequest, args AskForHelpArgs) (*mcp.CallToolResult, any, error) {
+func askForHelp(ctx context.Context, _ *mcp.CallToolRequest, args AskForHelpArgs) (*mcp.CallToolResult, any, error) {
 	client, err := NewGotifyClientFromEnv()
 	if err != nil {
 		return toolResult(fmt.Sprintf("Failed to send help request: %s", err), true)
@@ -185,7 +192,7 @@ func askForHelp(_ context.Context, _ *mcp.CallToolRequest, args AskForHelpArgs) 
 		message += fmt.Sprintf("\nError: %s", args.Error)
 	}
 
-	if err := client.Send(GotifyMessage{
+	if err := client.Send(ctx, GotifyMessage{
 		Message:  message,
 		Title:    "Help Request",
 		Priority: 8,
@@ -196,7 +203,7 @@ func askForHelp(_ context.Context, _ *mcp.CallToolRequest, args AskForHelpArgs) 
 	return toolResult("Help request sent successfully", false)
 }
 
-func notifyCompletion(_ context.Context, _ *mcp.CallToolRequest, args NotifyCompletionArgs) (*mcp.CallToolResult, any, error) {
+func notifyCompletion(ctx context.Context, _ *mcp.CallToolRequest, args NotifyCompletionArgs) (*mcp.CallToolResult, any, error) {
 	client, err := NewGotifyClientFromEnv()
 	if err != nil {
 		return toolResult(fmt.Sprintf("Failed to send completion notification: %s", err), true)
@@ -207,7 +214,7 @@ func notifyCompletion(_ context.Context, _ *mcp.CallToolRequest, args NotifyComp
 		message += fmt.Sprintf("\nResult: %s", args.Result)
 	}
 
-	if err := client.Send(GotifyMessage{
+	if err := client.Send(ctx, GotifyMessage{
 		Message:  message,
 		Title:    "Task Completed",
 		Priority: 6,
@@ -218,7 +225,7 @@ func notifyCompletion(_ context.Context, _ *mcp.CallToolRequest, args NotifyComp
 	return toolResult("Completion notification sent successfully", false)
 }
 
-func summarizeActivity(_ context.Context, _ *mcp.CallToolRequest, args SummarizeActivityArgs) (*mcp.CallToolResult, any, error) {
+func summarizeActivity(ctx context.Context, _ *mcp.CallToolRequest, args SummarizeActivityArgs) (*mcp.CallToolResult, any, error) {
 	client, err := NewGotifyClientFromEnv()
 	if err != nil {
 		return toolResult(fmt.Sprintf("Failed to send summary: %s", err), true)
@@ -229,7 +236,7 @@ func summarizeActivity(_ context.Context, _ *mcp.CallToolRequest, args Summarize
 		message += fmt.Sprintf("\nDetails: %s", args.Details)
 	}
 
-	if err := client.Send(GotifyMessage{
+	if err := client.Send(ctx, GotifyMessage{
 		Message:  message,
 		Title:    "Activity Summary",
 		Priority: 4,

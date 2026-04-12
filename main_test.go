@@ -27,8 +27,8 @@ func TestGotifyClient_Send(t *testing.T) {
 		if r.Method != http.MethodPost {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
-		if r.URL.Query().Get("token") != "test-token" {
-			t.Errorf("expected token test-token, got %s", r.URL.Query().Get("token"))
+		if r.Header.Get("X-Gotify-Key") != "test-token" {
+			t.Errorf("expected X-Gotify-Key test-token, got %s", r.Header.Get("X-Gotify-Key"))
 		}
 		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
 			t.Fatalf("failed to decode body: %v", err)
@@ -42,7 +42,7 @@ func TestGotifyClient_Send(t *testing.T) {
 		Title:    "Test",
 		Priority: 5,
 	}
-	if err := client.Send(msg); err != nil {
+	if err := client.Send(context.Background(), msg); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if received.Message != "hello" {
@@ -59,7 +59,7 @@ func TestGotifyClient_Send_ServerError(t *testing.T) {
 	})
 	defer ts.Close()
 
-	err := client.Send(GotifyMessage{Message: "test"})
+	err := client.Send(context.Background(), GotifyMessage{Message: "test"})
 	if err == nil {
 		t.Fatal("expected error for 500 response")
 	}
@@ -83,7 +83,7 @@ func TestGotifyClient_Send_WithExtras(t *testing.T) {
 			ClientDisplay: ClientDisplay{ContentType: "text/markdown"},
 		},
 	}
-	if err := client.Send(msg); err != nil {
+	if err := client.Send(context.Background(), msg); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if received.Extras.ClientDisplay.ContentType != "text/markdown" {
@@ -407,11 +407,54 @@ func TestGotifyClient_Send_ConnectionError(t *testing.T) {
 		Token:      "tok",
 		HTTPClient: http.DefaultClient,
 	}
-	err := client.Send(GotifyMessage{Message: "test"})
+	err := client.Send(context.Background(), GotifyMessage{Message: "test"})
 	if err == nil {
 		t.Fatal("expected error for connection failure")
 	}
 }
+func TestGotifyClient_Send_ContextCancellation(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	client := &GotifyClient{
+		URL:        ts.URL,
+		Token:      "tok",
+		HTTPClient: ts.Client(),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := client.Send(ctx, GotifyMessage{Message: "test"})
+	if err == nil {
+		t.Fatal("expected error for cancelled context")
+	}
+}
+
+func TestGotifyClient_Send_UsesHeader(t *testing.T) {
+	var gotHeader string
+	var gotQuery string
+
+	client, ts := setupTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		gotHeader = r.Header.Get("X-Gotify-Key")
+		gotQuery = r.URL.Query().Get("token")
+		w.WriteHeader(http.StatusOK)
+	})
+	defer ts.Close()
+
+	if err := client.Send(context.Background(), GotifyMessage{Message: "test"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotHeader != "test-token" {
+		t.Errorf("expected X-Gotify-Key header 'test-token', got %q", gotHeader)
+	}
+	if gotQuery != "" {
+		t.Error("token should not be in query params")
+	}
+}
+
 func TestSummarizeActivity(t *testing.T) {
 	var received GotifyMessage
 
