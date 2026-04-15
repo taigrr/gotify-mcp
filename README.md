@@ -2,7 +2,7 @@
 
 [![License 0BSD](https://img.shields.io/badge/License-0BSD-pink.svg)](https://opensource.org/licenses/0BSD)
 [![GoDoc](https://godoc.org/github.com/taigrr/gotify-mcp?status.svg)](https://godoc.org/github.com/taigrr/gotify-mcp)
-[![Go Mod](https://img.shields.io/badge/go.mod-v1.23-blue)](go.mod)
+[![Go Mod](https://img.shields.io/badge/go.mod-v1.26-blue)](go.mod)
 
 A Model Context Protocol (MCP) server that enables LLMs to send notifications to a Gotify server.
 This allows AI assistants to notify users about task completion, request help, or provide activity summaries.
