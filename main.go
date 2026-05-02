@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 
@@ -62,6 +63,14 @@ type GotifyClient struct {
 	Token      string
 	HTTPClient *http.Client
 }
+
+const (
+	defaultPriority = 5
+	minPriority     = 0
+	maxPriority     = 10
+	contentTypeText = "text/plain"
+	contentTypeMD   = "text/markdown"
+)
 
 // NewGotifyClientFromEnv creates a GotifyClient from environment variables.
 func NewGotifyClientFromEnv() (*GotifyClient, error) {
@@ -157,9 +166,14 @@ func sendMessage(ctx context.Context, _ *mcp.CallToolRequest, args SendMessageAr
 		return toolResult(fmt.Sprintf("Failed to send message: %s", err), true)
 	}
 
-	priority := 5
-	if args.Priority > 0 {
-		priority = int(args.Priority)
+	priority, err := normalizePriority(args.Priority)
+	if err != nil {
+		return toolResult(fmt.Sprintf("Failed to send message: %s", err), true)
+	}
+
+	contentType, err := normalizeContentType(args.ContentType)
+	if err != nil {
+		return toolResult(fmt.Sprintf("Failed to send message: %s", err), true)
 	}
 
 	msg := GotifyMessage{
@@ -168,9 +182,9 @@ func sendMessage(ctx context.Context, _ *mcp.CallToolRequest, args SendMessageAr
 		Priority: priority,
 	}
 
-	if args.ContentType != "" {
+	if contentType != "" {
 		msg.Extras = Extras{
-			ClientDisplay: ClientDisplay{ContentType: args.ContentType},
+			ClientDisplay: ClientDisplay{ContentType: contentType},
 		}
 	}
 
@@ -245,4 +259,27 @@ func summarizeActivity(ctx context.Context, _ *mcp.CallToolRequest, args Summari
 	}
 
 	return toolResult("Activity summary sent successfully", false)
+}
+
+func normalizePriority(priority float64) (int, error) {
+	if priority == 0 {
+		return defaultPriority, nil
+	}
+	if math.Trunc(priority) != priority {
+		return 0, fmt.Errorf("priority must be a whole number between %d and %d", minPriority, maxPriority)
+	}
+	if priority < minPriority || priority > maxPriority {
+		return 0, fmt.Errorf("priority must be between %d and %d", minPriority, maxPriority)
+	}
+	return int(priority), nil
+}
+
+func normalizeContentType(contentType string) (string, error) {
+	if contentType == "" {
+		return "", nil
+	}
+	if contentType != contentTypeText && contentType != contentTypeMD {
+		return "", fmt.Errorf("contentType must be %q or %q", contentTypeText, contentTypeMD)
+	}
+	return contentType, nil
 }
