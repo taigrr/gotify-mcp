@@ -153,8 +153,8 @@ func TestSendMessage_DefaultPriority(t *testing.T) {
 	if result.IsError {
 		t.Error("expected success")
 	}
-	if received.Priority != 5 {
-		t.Errorf("expected default priority 5, got %d", received.Priority)
+	if received.Priority != defaultPriority {
+		t.Errorf("expected default priority %d, got %d", defaultPriority, received.Priority)
 	}
 }
 
@@ -170,17 +170,23 @@ func TestSendMessage_CustomPriorityAndContentType(t *testing.T) {
 	t.Setenv("GOTIFY_URL", ts.URL)
 	t.Setenv("GOTIFY_TOKEN", "tok")
 
-	sendMessage(context.Background(), nil, SendMessageArgs{
+	result, _, err := sendMessage(context.Background(), nil, SendMessageArgs{
 		Message:     "md test",
 		Priority:    8,
-		ContentType: "text/markdown",
+		ContentType: contentTypeMD,
 	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.IsError {
+		t.Error("expected success")
+	}
 
 	if received.Priority != 8 {
 		t.Errorf("expected priority 8, got %d", received.Priority)
 	}
-	if received.Extras.ClientDisplay.ContentType != "text/markdown" {
-		t.Errorf("expected text/markdown, got %q", received.Extras.ClientDisplay.ContentType)
+	if received.Extras.ClientDisplay.ContentType != contentTypeMD {
+		t.Errorf("expected %s, got %q", contentTypeMD, received.Extras.ClientDisplay.ContentType)
 	}
 }
 
@@ -296,6 +302,54 @@ func TestSendMessage_ServerError(t *testing.T) {
 	}
 	if !result.IsError {
 		t.Error("expected error result for server error")
+	}
+}
+
+func TestSendMessage_InvalidPriority(t *testing.T) {
+	t.Setenv("GOTIFY_URL", "http://localhost")
+	t.Setenv("GOTIFY_TOKEN", "tok")
+
+	result, _, err := sendMessage(context.Background(), nil, SendMessageArgs{
+		Message:  "test",
+		Priority: 11,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result for out-of-range priority")
+	}
+}
+
+func TestSendMessage_FractionalPriority(t *testing.T) {
+	t.Setenv("GOTIFY_URL", "http://localhost")
+	t.Setenv("GOTIFY_TOKEN", "tok")
+
+	result, _, err := sendMessage(context.Background(), nil, SendMessageArgs{
+		Message:  "test",
+		Priority: 4.5,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result for fractional priority")
+	}
+}
+
+func TestSendMessage_InvalidContentType(t *testing.T) {
+	t.Setenv("GOTIFY_URL", "http://localhost")
+	t.Setenv("GOTIFY_TOKEN", "tok")
+
+	result, _, err := sendMessage(context.Background(), nil, SendMessageArgs{
+		Message:     "test",
+		ContentType: "text/html",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result for invalid content type")
 	}
 }
 
