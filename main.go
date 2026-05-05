@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -98,8 +99,12 @@ func (c *GotifyClient) Send(ctx context.Context, msg GotifyMessage) error {
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/message", c.URL)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonData))
+	messageURL, err := url.JoinPath(c.URL, "message")
+	if err != nil {
+		return fmt.Errorf("failed to build gotify message URL: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, messageURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
