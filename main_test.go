@@ -22,8 +22,10 @@ func setupTestServer(t *testing.T, handler http.HandlerFunc) (*GotifyClient, *ht
 
 func TestGotifyClient_Send(t *testing.T) {
 	var received GotifyMessage
+	var requestPath string
 
 	client, ts := setupTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		requestPath = r.URL.Path
 		if r.Method != http.MethodPost {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
@@ -51,6 +53,9 @@ func TestGotifyClient_Send(t *testing.T) {
 	if received.Title != "Test" {
 		t.Errorf("expected title 'Test', got %q", received.Title)
 	}
+	if requestPath != "/message" {
+		t.Errorf("expected request path /message, got %q", requestPath)
+	}
 }
 
 func TestGotifyClient_Send_ServerError(t *testing.T) {
@@ -74,6 +79,7 @@ func TestGotifyClient_Send_WithExtras(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusOK)
 	})
+	client.URL = ts.URL + "/"
 	defer ts.Close()
 
 	msg := GotifyMessage{
