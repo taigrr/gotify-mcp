@@ -538,3 +538,174 @@ func TestSummarizeActivity(t *testing.T) {
 		t.Errorf("expected priority 4, got %d", received.Priority)
 	}
 }
+
+func TestSendMessage_TrimsMessageAndTitle(t *testing.T) {
+	var received GotifyMessage
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+			t.Fatalf("failed to decode body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	t.Setenv("GOTIFY_URL", ts.URL)
+	t.Setenv("GOTIFY_TOKEN", "tok")
+
+	result, _, err := sendMessage(context.Background(), nil, SendMessageArgs{
+		Message: "  hello world  ",
+		Title:   "  Heads up  ",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.IsError {
+		t.Fatal("expected success")
+	}
+	if received.Message != "hello world" {
+		t.Errorf("expected trimmed message, got %q", received.Message)
+	}
+	if received.Title != "Heads up" {
+		t.Errorf("expected trimmed title, got %q", received.Title)
+	}
+}
+
+func TestSendMessage_RejectsBlankMessage(t *testing.T) {
+	t.Setenv("GOTIFY_URL", "http://localhost")
+	t.Setenv("GOTIFY_TOKEN", "tok")
+
+	result, _, err := sendMessage(context.Background(), nil, SendMessageArgs{Message: " \n\t "})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result for blank message")
+	}
+}
+
+func TestAskForHelp_TrimsFields(t *testing.T) {
+	var received GotifyMessage
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+			t.Fatalf("failed to decode body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	t.Setenv("GOTIFY_URL", ts.URL)
+	t.Setenv("GOTIFY_TOKEN", "tok")
+
+	result, _, err := askForHelp(context.Background(), nil, AskForHelpArgs{
+		Context: "  stuck on deploy  ",
+		Error:   "  timeout  ",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.IsError {
+		t.Fatal("expected success")
+	}
+	if received.Message != "🆘 Help needed: stuck on deploy\nError: timeout" {
+		t.Errorf("unexpected trimmed message: %q", received.Message)
+	}
+}
+
+func TestAskForHelp_RejectsBlankContext(t *testing.T) {
+	t.Setenv("GOTIFY_URL", "http://localhost")
+	t.Setenv("GOTIFY_TOKEN", "tok")
+
+	result, _, err := askForHelp(context.Background(), nil, AskForHelpArgs{Context: "   "})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result for blank context")
+	}
+}
+
+func TestNotifyCompletion_TrimsFields(t *testing.T) {
+	var received GotifyMessage
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+			t.Fatalf("failed to decode body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	t.Setenv("GOTIFY_URL", ts.URL)
+	t.Setenv("GOTIFY_TOKEN", "tok")
+
+	result, _, err := notifyCompletion(context.Background(), nil, NotifyCompletionArgs{
+		Task:   "  build  ",
+		Result: "  success  ",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.IsError {
+		t.Fatal("expected success")
+	}
+	if received.Message != "✅ Task completed: build\nResult: success" {
+		t.Errorf("unexpected trimmed message: %q", received.Message)
+	}
+}
+
+func TestNotifyCompletion_RejectsBlankTask(t *testing.T) {
+	t.Setenv("GOTIFY_URL", "http://localhost")
+	t.Setenv("GOTIFY_TOKEN", "tok")
+
+	result, _, err := notifyCompletion(context.Background(), nil, NotifyCompletionArgs{Task: "\t\n"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result for blank task")
+	}
+}
+
+func TestSummarizeActivity_TrimsFields(t *testing.T) {
+	var received GotifyMessage
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+			t.Fatalf("failed to decode body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	t.Setenv("GOTIFY_URL", ts.URL)
+	t.Setenv("GOTIFY_TOKEN", "tok")
+
+	result, _, err := summarizeActivity(context.Background(), nil, SummarizeActivityArgs{
+		Summary: "  all good  ",
+		Details: "  shipped fix  ",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.IsError {
+		t.Fatal("expected success")
+	}
+	if received.Message != "📊 Activity Summary: all good\nDetails: shipped fix" {
+		t.Errorf("unexpected trimmed message: %q", received.Message)
+	}
+}
+
+func TestSummarizeActivity_RejectsBlankSummary(t *testing.T) {
+	t.Setenv("GOTIFY_URL", "http://localhost")
+	t.Setenv("GOTIFY_TOKEN", "tok")
+
+	result, _, err := summarizeActivity(context.Background(), nil, SummarizeActivityArgs{Summary: "   "})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result for blank summary")
+	}
+}
