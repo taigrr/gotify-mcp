@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -181,9 +182,16 @@ func sendMessage(ctx context.Context, _ *mcp.CallToolRequest, args SendMessageAr
 		return toolResult(fmt.Sprintf("Failed to send message: %s", err), true)
 	}
 
+	message, err := normalizeRequiredText("message", args.Message)
+	if err != nil {
+		return toolResult(fmt.Sprintf("Failed to send message: %s", err), true)
+	}
+
+	title := normalizeOptionalText(args.Title)
+
 	msg := GotifyMessage{
-		Message:  args.Message,
-		Title:    args.Title,
+		Message:  message,
+		Title:    title,
 		Priority: priority,
 	}
 
@@ -206,9 +214,15 @@ func askForHelp(ctx context.Context, _ *mcp.CallToolRequest, args AskForHelpArgs
 		return toolResult(fmt.Sprintf("Failed to send help request: %s", err), true)
 	}
 
-	message := fmt.Sprintf("🆘 Help needed: %s", args.Context)
-	if args.Error != "" {
-		message += fmt.Sprintf("\nError: %s", args.Error)
+	contextText, err := normalizeRequiredText("context", args.Context)
+	if err != nil {
+		return toolResult(fmt.Sprintf("Failed to send help request: %s", err), true)
+	}
+
+	errorText := normalizeOptionalText(args.Error)
+	message := fmt.Sprintf("🆘 Help needed: %s", contextText)
+	if errorText != "" {
+		message += fmt.Sprintf("\nError: %s", errorText)
 	}
 
 	if err := client.Send(ctx, GotifyMessage{
@@ -228,9 +242,15 @@ func notifyCompletion(ctx context.Context, _ *mcp.CallToolRequest, args NotifyCo
 		return toolResult(fmt.Sprintf("Failed to send completion notification: %s", err), true)
 	}
 
-	message := fmt.Sprintf("✅ Task completed: %s", args.Task)
-	if args.Result != "" {
-		message += fmt.Sprintf("\nResult: %s", args.Result)
+	taskText, err := normalizeRequiredText("task", args.Task)
+	if err != nil {
+		return toolResult(fmt.Sprintf("Failed to send completion notification: %s", err), true)
+	}
+
+	resultText := normalizeOptionalText(args.Result)
+	message := fmt.Sprintf("✅ Task completed: %s", taskText)
+	if resultText != "" {
+		message += fmt.Sprintf("\nResult: %s", resultText)
 	}
 
 	if err := client.Send(ctx, GotifyMessage{
@@ -250,9 +270,15 @@ func summarizeActivity(ctx context.Context, _ *mcp.CallToolRequest, args Summari
 		return toolResult(fmt.Sprintf("Failed to send summary: %s", err), true)
 	}
 
-	message := fmt.Sprintf("📊 Activity Summary: %s", args.Summary)
-	if args.Details != "" {
-		message += fmt.Sprintf("\nDetails: %s", args.Details)
+	summaryText, err := normalizeRequiredText("summary", args.Summary)
+	if err != nil {
+		return toolResult(fmt.Sprintf("Failed to send summary: %s", err), true)
+	}
+
+	detailsText := normalizeOptionalText(args.Details)
+	message := fmt.Sprintf("📊 Activity Summary: %s", summaryText)
+	if detailsText != "" {
+		message += fmt.Sprintf("\nDetails: %s", detailsText)
 	}
 
 	if err := client.Send(ctx, GotifyMessage{
@@ -287,4 +313,16 @@ func normalizeContentType(contentType string) (string, error) {
 		return "", fmt.Errorf("contentType must be %q or %q", contentTypeText, contentTypeMD)
 	}
 	return contentType, nil
+}
+
+func normalizeRequiredText(fieldName, value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", fmt.Errorf("%s must not be empty", fieldName)
+	}
+	return trimmed, nil
+}
+
+func normalizeOptionalText(value string) string {
+	return strings.TrimSpace(value)
 }
