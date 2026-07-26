@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"net/http"
@@ -25,7 +26,7 @@ type GotifyMessage struct {
 
 // Extras holds Gotify message extras for client display configuration.
 type Extras struct {
-	ClientDisplay ClientDisplay `json:"client::display,omitempty"`
+	ClientDisplay ClientDisplay `json:"client::display"`
 }
 
 // ClientDisplay configures how the Gotify client renders the message.
@@ -119,6 +120,10 @@ func (c *GotifyClient) Send(ctx context.Context, msg GotifyMessage) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
+		if len(bytes.TrimSpace(body)) > 0 {
+			return fmt.Errorf("gotify server returned status %d: %s", resp.StatusCode, bytes.TrimSpace(body))
+		}
 		return fmt.Errorf("gotify server returned status: %d", resp.StatusCode)
 	}
 
