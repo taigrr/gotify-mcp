@@ -35,10 +35,10 @@ type ClientDisplay struct {
 
 // SendMessageArgs are the arguments for the send-message tool.
 type SendMessageArgs struct {
-	Message     string  `json:"message" jsonschema:"The message content to send"`
-	Title       string  `json:"title,omitempty" jsonschema:"Optional title for the message"`
-	Priority    float64 `json:"priority,omitempty" jsonschema:"Message priority (0-10, default: 5)"`
-	ContentType string  `json:"contentType,omitempty" jsonschema:"Message content type (text/plain or text/markdown, default: text/plain)"`
+	Message     string   `json:"message" jsonschema:"The message content to send"`
+	Title       string   `json:"title,omitempty" jsonschema:"Optional title for the message"`
+	Priority    *float64 `json:"priority,omitempty" jsonschema:"Message priority (0-10, default: 5)"`
+	ContentType string   `json:"contentType,omitempty" jsonschema:"Message content type (text/plain or text/markdown, default: text/plain)"`
 }
 
 // AskForHelpArgs are the arguments for the ask-for-help tool.
@@ -292,17 +292,17 @@ func summarizeActivity(ctx context.Context, _ *mcp.CallToolRequest, args Summari
 	return toolResult("Activity summary sent successfully", false)
 }
 
-func normalizePriority(priority float64) (int, error) {
-	if priority == 0 {
+func normalizePriority(priority *float64) (int, error) {
+	if priority == nil {
 		return defaultPriority, nil
 	}
-	if math.Trunc(priority) != priority {
+	if math.Trunc(*priority) != *priority {
 		return 0, fmt.Errorf("priority must be a whole number between %d and %d", minPriority, maxPriority)
 	}
-	if priority < minPriority || priority > maxPriority {
+	if *priority < minPriority || *priority > maxPriority {
 		return 0, fmt.Errorf("priority must be between %d and %d", minPriority, maxPriority)
 	}
-	return int(priority), nil
+	return int(*priority), nil
 }
 
 func normalizeContentType(contentType string) (string, error) {

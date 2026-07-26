@@ -20,6 +20,10 @@ func setupTestServer(t *testing.T, handler http.HandlerFunc) (*GotifyClient, *ht
 	}, ts
 }
 
+func testPriority(priority float64) *float64 {
+	return &priority
+}
+
 func TestGotifyClient_Send(t *testing.T) {
 	var received GotifyMessage
 	var requestPath string
@@ -164,6 +168,35 @@ func TestSendMessage_DefaultPriority(t *testing.T) {
 	}
 }
 
+func TestSendMessage_ExplicitZeroPriority(t *testing.T) {
+	var received GotifyMessage
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+			t.Fatalf("failed to decode body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	t.Setenv("GOTIFY_URL", ts.URL)
+	t.Setenv("GOTIFY_TOKEN", "tok")
+
+	result, _, err := sendMessage(context.Background(), nil, SendMessageArgs{
+		Message:  "low priority",
+		Priority: testPriority(0),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.IsError {
+		t.Error("expected success")
+	}
+	if received.Priority != 0 {
+		t.Errorf("expected explicit priority 0, got %d", received.Priority)
+	}
+}
+
 func TestSendMessage_CustomPriorityAndContentType(t *testing.T) {
 	var received GotifyMessage
 
@@ -178,7 +211,7 @@ func TestSendMessage_CustomPriorityAndContentType(t *testing.T) {
 
 	result, _, err := sendMessage(context.Background(), nil, SendMessageArgs{
 		Message:     "md test",
-		Priority:    8,
+		Priority:    testPriority(8),
 		ContentType: contentTypeMD,
 	})
 	if err != nil {
@@ -317,7 +350,7 @@ func TestSendMessage_InvalidPriority(t *testing.T) {
 
 	result, _, err := sendMessage(context.Background(), nil, SendMessageArgs{
 		Message:  "test",
-		Priority: 11,
+		Priority: testPriority(11),
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -333,7 +366,7 @@ func TestSendMessage_FractionalPriority(t *testing.T) {
 
 	result, _, err := sendMessage(context.Background(), nil, SendMessageArgs{
 		Message:  "test",
-		Priority: 4.5,
+		Priority: testPriority(4.5),
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
