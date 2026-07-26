@@ -90,7 +90,7 @@ func TestGotifyClient_Send_WithExtras(t *testing.T) {
 	msg := GotifyMessage{
 		Message:  "markdown msg",
 		Priority: 5,
-		Extras: Extras{
+		Extras: &Extras{
 			ClientDisplay: ClientDisplay{ContentType: "text/markdown"},
 		},
 	}
@@ -206,6 +206,9 @@ func TestSendMessage_ExplicitZeroPriority(t *testing.T) {
 	}
 	if _, ok := raw["priority"]; !ok {
 		t.Error("expected priority field to be present in request body")
+	}
+	if _, ok := raw["extras"]; ok {
+		t.Error("expected extras to be omitted when no content type is set")
 	}
 }
 

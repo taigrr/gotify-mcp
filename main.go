@@ -17,10 +17,10 @@ import (
 
 // GotifyMessage represents a message payload for the Gotify API.
 type GotifyMessage struct {
-	Message  string `json:"message"`
-	Title    string `json:"title,omitempty"`
-	Priority int    `json:"priority"`
-	Extras   Extras `json:"extras,omitempty"`
+	Message  string  `json:"message"`
+	Title    string  `json:"title,omitempty"`
+	Priority int     `json:"priority"`
+	Extras   *Extras `json:"extras,omitempty"`
 }
 
 // Extras holds Gotify message extras for client display configuration.
@@ -138,7 +138,7 @@ func toolResult(text string, isError bool) (*mcp.CallToolResult, any, error) {
 func main() {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "Gotify Notification Server",
-		Version: "1.1.0",
+		Version: "0.1.0",
 	}, nil)
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -196,7 +196,7 @@ func sendMessage(ctx context.Context, _ *mcp.CallToolRequest, args SendMessageAr
 	}
 
 	if contentType != "" {
-		msg.Extras = Extras{
+		msg.Extras = &Extras{
 			ClientDisplay: ClientDisplay{ContentType: contentType},
 		}
 	}
