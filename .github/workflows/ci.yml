@@ -34,5 +34,16 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { echo "Run gofmt:"; gofmt -l .; exit 1; }
+
+      - name: goimports
+        run: |
+          go install golang.org/x/tools/cmd/goimports@latest
+          test -z "$(goimports -l .)" || { echo "Run goimports:"; goimports -l .; exit 1; }
+
+      - name: go vet
+        run: go vet ./...
+
       - name: staticcheck
         uses: dominikh/staticcheck-action@v1

@@ -19,7 +19,7 @@ import (
 type GotifyMessage struct {
 	Message  string `json:"message"`
 	Title    string `json:"title,omitempty"`
-	Priority int    `json:"priority,omitempty"`
+	Priority int    `json:"priority"`
 	Extras   Extras `json:"extras,omitempty"`
 }
 

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -170,10 +171,18 @@ func TestSendMessage_DefaultPriority(t *testing.T) {
 
 func TestSendMessage_ExplicitZeroPriority(t *testing.T) {
 	var received GotifyMessage
+	var raw map[string]any
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("failed to read body: %v", err)
+		}
+		if err := json.Unmarshal(body, &received); err != nil {
 			t.Fatalf("failed to decode body: %v", err)
+		}
+		if err := json.Unmarshal(body, &raw); err != nil {
+			t.Fatalf("failed to decode raw body: %v", err)
 		}
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -194,6 +203,9 @@ func TestSendMessage_ExplicitZeroPriority(t *testing.T) {
 	}
 	if received.Priority != 0 {
 		t.Errorf("expected explicit priority 0, got %d", received.Priority)
+	}
+	if _, ok := raw["priority"]; !ok {
+		t.Error("expected priority field to be present in request body")
 	}
 }
 
