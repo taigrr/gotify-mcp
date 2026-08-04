@@ -25,6 +25,13 @@ func testPriority(priority float64) *float64 {
 	return &priority
 }
 
+func decodeRequestBody(t *testing.T, r *http.Request, dest any) {
+	t.Helper()
+	if err := json.NewDecoder(r.Body).Decode(dest); err != nil {
+		t.Fatalf("failed to decode body: %v", err)
+	}
+}
+
 func TestGotifyClient_Send(t *testing.T) {
 	var received GotifyMessage
 	var requestPath string
@@ -37,9 +44,7 @@ func TestGotifyClient_Send(t *testing.T) {
 		if r.Header.Get("X-Gotify-Key") != "test-token" {
 			t.Errorf("expected X-Gotify-Key test-token, got %s", r.Header.Get("X-Gotify-Key"))
 		}
-		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
-			t.Fatalf("failed to decode body: %v", err)
-		}
+		decodeRequestBody(t, r, &received)
 		w.WriteHeader(http.StatusOK)
 	})
 	defer ts.Close()
@@ -79,9 +84,7 @@ func TestGotifyClient_Send_WithExtras(t *testing.T) {
 	var received GotifyMessage
 
 	client, ts := setupTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
-			t.Fatalf("failed to decode body: %v", err)
-		}
+		decodeRequestBody(t, r, &received)
 		w.WriteHeader(http.StatusOK)
 	})
 	client.URL = ts.URL + "/"
@@ -147,7 +150,7 @@ func TestSendMessage_DefaultPriority(t *testing.T) {
 	var received GotifyMessage
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&received)
+		decodeRequestBody(t, r, &received)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -216,7 +219,7 @@ func TestSendMessage_CustomPriorityAndContentType(t *testing.T) {
 	var received GotifyMessage
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&received)
+		decodeRequestBody(t, r, &received)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -248,7 +251,7 @@ func TestAskForHelp(t *testing.T) {
 	var received GotifyMessage
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&received)
+		decodeRequestBody(t, r, &received)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -275,7 +278,7 @@ func TestNotifyCompletion(t *testing.T) {
 	var received GotifyMessage
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&received)
+		decodeRequestBody(t, r, &received)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -458,7 +461,7 @@ func TestSummarizeActivity_ServerError(t *testing.T) {
 func TestAskForHelp_WithoutError(t *testing.T) {
 	var received GotifyMessage
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&received)
+		decodeRequestBody(t, r, &received)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -476,7 +479,7 @@ func TestAskForHelp_WithoutError(t *testing.T) {
 func TestNotifyCompletion_WithoutResult(t *testing.T) {
 	var received GotifyMessage
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&received)
+		decodeRequestBody(t, r, &received)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -494,7 +497,7 @@ func TestNotifyCompletion_WithoutResult(t *testing.T) {
 func TestSummarizeActivity_WithoutDetails(t *testing.T) {
 	var received GotifyMessage
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&received)
+		decodeRequestBody(t, r, &received)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -567,7 +570,7 @@ func TestSummarizeActivity(t *testing.T) {
 	var received GotifyMessage
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&received)
+		decodeRequestBody(t, r, &received)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -591,9 +594,7 @@ func TestSendMessage_TrimsMessageAndTitle(t *testing.T) {
 	var received GotifyMessage
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
-			t.Fatalf("failed to decode body: %v", err)
-		}
+		decodeRequestBody(t, r, &received)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -636,9 +637,7 @@ func TestAskForHelp_TrimsFields(t *testing.T) {
 	var received GotifyMessage
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
-			t.Fatalf("failed to decode body: %v", err)
-		}
+		decodeRequestBody(t, r, &received)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -678,9 +677,7 @@ func TestNotifyCompletion_TrimsFields(t *testing.T) {
 	var received GotifyMessage
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
-			t.Fatalf("failed to decode body: %v", err)
-		}
+		decodeRequestBody(t, r, &received)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -720,9 +717,7 @@ func TestSummarizeActivity_TrimsFields(t *testing.T) {
 	var received GotifyMessage
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
-			t.Fatalf("failed to decode body: %v", err)
-		}
+		decodeRequestBody(t, r, &received)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
