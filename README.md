@@ -1,5 +1,6 @@
 # gotify-mcp
 
+[![CI](https://github.com/taigrr/gotify-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/taigrr/gotify-mcp/actions/workflows/ci.yml)
 [![License 0BSD](https://img.shields.io/badge/License-0BSD-pink.svg)](https://opensource.org/licenses/0BSD)
 [![GoDoc](https://godoc.org/github.com/taigrr/gotify-mcp?status.svg)](https://godoc.org/github.com/taigrr/gotify-mcp)
 [![Go Mod](https://img.shields.io/badge/go.mod-v1.26-blue)](go.mod)
