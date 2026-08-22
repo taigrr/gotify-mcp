@@ -28,7 +28,7 @@ func testPriority(priority float64) *float64 {
 func decodeRequestBody(t *testing.T, r *http.Request, dest any) {
 	t.Helper()
 	if err := json.NewDecoder(r.Body).Decode(dest); err != nil {
-		t.Fatalf("failed to decode body: %v", err)
+		t.Errorf("failed to decode body: %v", err)
 	}
 }
 
