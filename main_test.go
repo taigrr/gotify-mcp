@@ -247,6 +247,33 @@ func TestSendMessage_CustomPriorityAndContentType(t *testing.T) {
 	}
 }
 
+func TestSendMessage_TrimsContentType(t *testing.T) {
+	var received GotifyMessage
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		decodeRequestBody(t, r, &received)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	t.Setenv("GOTIFY_URL", ts.URL)
+	t.Setenv("GOTIFY_TOKEN", "tok")
+
+	result, _, err := sendMessage(context.Background(), nil, SendMessageArgs{
+		Message:     "md test",
+		ContentType: "  " + contentTypeMD + "  ",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.IsError {
+		t.Fatal("expected success")
+	}
+	if received.Extras.ClientDisplay.ContentType != contentTypeMD {
+		t.Errorf("expected trimmed content type %s, got %q", contentTypeMD, received.Extras.ClientDisplay.ContentType)
+	}
+}
+
 func TestAskForHelp(t *testing.T) {
 	var received GotifyMessage
 

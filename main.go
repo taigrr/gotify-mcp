@@ -311,6 +311,7 @@ func normalizePriority(priority *float64) (int, error) {
 }
 
 func normalizeContentType(contentType string) (string, error) {
+	contentType = strings.TrimSpace(contentType)
 	if contentType == "" {
 		return "", nil
 	}

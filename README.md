@@ -46,6 +46,7 @@ Send a custom message to Gotify.
 - `message` (required): The message content to send
 - `title` (optional): Title for the message
 - `priority` (optional): Message priority (0-10, default: 5)
+- `contentType` (optional): Message content type (`text/plain` or `text/markdown`)
 
 ### ask-for-help
 Send a help request notification.
