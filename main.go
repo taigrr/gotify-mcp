@@ -143,7 +143,7 @@ func toolResult(text string, isError bool) (*mcp.CallToolResult, any, error) {
 func main() {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "Gotify Notification Server",
-		Version: "0.1.0",
+		Version: "0.1.1",
 	}, nil)
 
 	mcp.AddTool(server, &mcp.Tool{

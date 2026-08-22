@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.1 (unreleased)
+## v0.1.1
 
 - fix(client): include server error body in returned errors; drop no-op `omitempty`
 - fix: omit empty extras and align version to 0.1.0
@@ -8,6 +8,8 @@
 - test: fail on malformed Gotify request payloads instead of silently ignoring decode errors
 - chore: update dependencies (`go-sdk` v1.4.1 → v1.7.0, `golang.org/x/sys`, `golang.org/x/tools`, etc.)
 - ci: switch release workflow to GoReleaser Pro
+- fix(validation): trim whitespace around the optional `contentType` argument
+- build: add grouped Dependabot config for gomod and github-actions
 
 ## v0.1.0
 
