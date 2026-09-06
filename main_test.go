@@ -105,6 +105,32 @@ func TestGotifyClient_Send_WithExtras(t *testing.T) {
 	}
 }
 
+func TestGotifyClient_Send_DefaultsNilHTTPClient(t *testing.T) {
+	var received GotifyMessage
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		decodeRequestBody(t, r, &received)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	client := &GotifyClient{
+		URL:   ts.URL,
+		Token: "test-token",
+	}
+
+	err := client.Send(context.Background(), GotifyMessage{
+		Message:  "hello",
+		Priority: defaultPriority,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if received.Message != "hello" {
+		t.Errorf("expected message 'hello', got %q", received.Message)
+	}
+}
+
 func TestNewGotifyClientFromEnv_MissingURL(t *testing.T) {
 	t.Setenv("GOTIFY_URL", "")
 	t.Setenv("GOTIFY_TOKEN", "tok")
