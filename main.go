@@ -113,7 +113,12 @@ func (c *GotifyClient) Send(ctx context.Context, msg GotifyMessage) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Gotify-Key", c.Token)
 
-	resp, err := c.HTTPClient.Do(req)
+	httpClient := c.HTTPClient
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send message: %w", err)
 	}
