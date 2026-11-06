@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -803,5 +804,62 @@ func TestSummarizeActivity_RejectsBlankSummary(t *testing.T) {
 	}
 	if !result.IsError {
 		t.Fatal("expected error result for blank summary")
+	}
+}
+
+func TestGotifyClient_Send_ErrorDetails(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		body string
+		want string
+	}{
+		{name: "JSON response", body: ` {"error":"Unauthorized","errorCode":401,"errorDescription":"invalid token"} `, want: `gotify server returned status 401: {"error":"Unauthorized","errorCode":401,"errorDescription":"invalid token"}`},
+		{name: "whitespace only", body: " \n\t ", want: "gotify server returned status: 401"},
+		{name: "oversized response", body: strings.Repeat("x", 1<<16) + "must-not-appear", want: "gotify server returned status 401: " + strings.Repeat("x", 1<<16)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client, server := setupTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = io.WriteString(w, test.body)
+			})
+			defer server.Close()
+			err := client.Send(context.Background(), GotifyMessage{Message: "test"})
+			if err == nil {
+				t.Fatal("expected error for unauthorized response")
+			}
+			if err.Error() != test.want {
+				t.Errorf("unexpected error details (got %d bytes, want %d bytes)", len(err.Error()), len(test.want))
+			}
+		})
+	}
+}
+
+func TestGotifyClient_Send_BasePath(t *testing.T) {
+	for _, basePath := range []string{"/gotify", "/gotify/", "/notifications/gotify", "/notifications/gotify/"} {
+		t.Run(basePath, func(t *testing.T) {
+			client, server := setupTestServer(t, func(w http.ResponseWriter, request *http.Request) {
+				wantPath := strings.TrimSuffix(basePath, "/") + "/message"
+				if request.URL.Path != wantPath {
+					t.Errorf("request path = %q, want %q", request.URL.Path, wantPath)
+				}
+				if request.Method != http.MethodPost {
+					t.Errorf("request method = %q, want POST", request.Method)
+				}
+				if request.Header.Get("X-Gotify-Key") != "test-token" {
+					t.Error("missing authentication header")
+				}
+				var message GotifyMessage
+				decodeRequestBody(t, request, &message)
+				if message.Message != "test" {
+					t.Errorf("message = %q, want test", message.Message)
+				}
+				w.WriteHeader(http.StatusOK)
+			})
+			defer server.Close()
+			client.URL += basePath
+			if err := client.Send(context.Background(), GotifyMessage{Message: "test"}); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
 	}
 }
