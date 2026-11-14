@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"net/http/httptrace"
 	"strings"
 	"testing"
 )
@@ -42,7 +44,8 @@ func TestGotifyClientSendResponseHandling(t *testing.T) {
 		wantError string
 		wantRead  int
 	}{
-		{name: "success closes body without decoding", status: http.StatusOK, body: "not JSON"},
+		{name: "success closes body without decoding", status: http.StatusOK, body: "not JSON", wantRead: 8},
+		{name: "bounded success", status: http.StatusOK, body: strings.Repeat("x", responseLimit+1), wantRead: responseLimit},
 		{name: "empty error", status: http.StatusInternalServerError, wantError: "gotify server returned status: 500"},
 		{name: "whitespace error", status: http.StatusBadGateway, body: " \n\t ", wantError: "gotify server returned status: 502", wantRead: 4},
 		{name: "trimmed diagnostic", status: http.StatusUnauthorized, body: " \ninvalid token\t ", wantError: "gotify server returned status 401: invalid token", wantRead: 17},
@@ -79,4 +82,24 @@ func errorText(err error) string {
 		return ""
 	}
 	return err.Error()
+}
+
+func TestGotifyClientSendReusesConnection(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(writer, `{"id":1,"message":"sent"}`)
+	}))
+	defer server.Close()
+	client := &GotifyClient{URL: server.URL, Token: "test-token", HTTPClient: server.Client()}
+	for index := 0; index < 2; index++ {
+		reused := false
+		ctx := httptrace.WithClientTrace(context.Background(), &httptrace.ClientTrace{
+			GotConn: func(info httptrace.GotConnInfo) { reused = info.Reused },
+		})
+		if err := client.Send(ctx, GotifyMessage{Message: "test"}); err != nil {
+			t.Fatal(err)
+		}
+		if index == 1 && !reused {
+			t.Error("second send did not reuse the connection")
+		}
+	}
 }
