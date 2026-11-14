@@ -68,11 +68,12 @@ type GotifyClient struct {
 }
 
 const (
-	defaultPriority = 5
-	minPriority     = 0
-	maxPriority     = 10
-	contentTypeText = "text/plain"
-	contentTypeMD   = "text/markdown"
+	maxResponseBodyBytes = 64 * 1024
+	defaultPriority      = 5
+	minPriority          = 0
+	maxPriority          = 10
+	contentTypeText      = "text/plain"
+	contentTypeMD        = "text/markdown"
 )
 
 // NewGotifyClientFromEnv creates a GotifyClient from environment variables.
@@ -125,13 +126,16 @@ func (c *GotifyClient) Send(ctx context.Context, msg GotifyMessage) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodyBytes))
 		if len(bytes.TrimSpace(body)) > 0 {
 			return fmt.Errorf("gotify server returned status %d: %s", resp.StatusCode, bytes.TrimSpace(body))
 		}
 		return fmt.Errorf("gotify server returned status: %d", resp.StatusCode)
 	}
 
+	// Drain ordinary success bodies so the transport can reuse the connection.
+	// Bound reads in case a server returns an unexpectedly large response.
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxResponseBodyBytes))
 	return nil
 }
 
